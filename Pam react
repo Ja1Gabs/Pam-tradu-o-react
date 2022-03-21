@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Constants from 'expo-constants';
+import * as SQLite from 'expo-sqlite';
+
+function openDatabase() {
+  if (Platform.OS === 'web') {
+    return {
+      transaction: () => {
+        return {
+          executeSql: () => {},
+        };
+      },
+    };
+  }
+
+  const db = SQLite.openDatabase('db.db');
+  return db;
+}
+
+const db = openDatabase();
+
+function Itens({ done: doneHeading, onPressItem }) {
+  const [itens, seleItens] = useState(null);
+
+  useEffect(() => {
+    db.transaction((tx) => {
+      tx.executeSql(
+        `select * from itens where done = ?;`,
+        [doneHeading ? 1 : 0],
+        (_, { rows: { _array } }) => seleItens(_array)
+      );
+    });
+  }, []);
+
+  const heading = doneHeading ? 'Completed' : 'Todo';
+
+  if (itens === null || itens.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.sectionContainer}>
+      <Text style={styles.sectionHeading}>{heading}</Text>
+      {itens.map(({ cod, pronto, valor }) => (
+        <TouchableOpacity
+          key={cod}
+          onPress={() => onPressItem && onPressItem(cod)}
+          style={{
+            backgroundColor: pronto ? '#1C1C1C' : '#363636',
+            borderColor: '#DCDCDC',
+            borderWidth: 1,
+            padding: 8,
+          }}>
+          <Text style={{ color: pronto ? '#363636' : '#DCDCDC' }}>{valor}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+export default function App() {
+  const [texto, seleTexto] = useState(null);
+  const [forceatual, forcecod] = useForceUpdate();
+
+  useEffect(() => {
+    db.transaction((tx) => {
+      tx.executeSql(
+       
+      );
+    });
+  }, []);
+
+  const add = (texto) => {
+    // is text empty?
+    if (texto === null || texto === '') {
+      return false;
+    }
+
+    db.transaction(
+      (tx) => {
+        tx.executeSql('insert into items (done, value) values (0, ?)', [texto]);
+        tx.executeSql('select * from items', [], (_, { rows }) =>
+          console.log(JSON.stringify(rows))
+        );
+      },
+      null,
+      forceatual
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.heading}>SQLite Example</Text>
+
+      {Platform.OS === 'web' ? (
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={styles.heading}>
+            Expo SQlite is not supported on web!
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.flexRow}>
+            <TextInput
+              onChangeText={(text) => seleTexto(text)}
+              onSubmitEditing={() => {
+                add(texto);
+                seleTexto(null);
+              }}
+              placeholder="Do que precisa?"
+              style={styles.input}
+              value={texto}
+            />
+          </View>
+          <ScrollView style={styles.listArea}>
+            <Itens
+              key={`forceupdate-todo-${forcecod}`}
+              done={false}
+              onPressItem={(id) =>
+                db.transaction(
+                  (tx) => {
+                    tx.executeSql(`update items set done = 1 where id = ?;`, [
+                      id,
+                    ]);
+                  },
+                  null,
+                  forceatual
+                )
+              }
+            />
+            <Itens
+              done
+              key={`forceupdate-done-${forcecod}`}
+              onPressItem={(id) =>
+                db.transaction(
+                  (tx) => {
+                    tx.executeSql(`delete from items where id = ?;`, [id]);
+                  },
+                  null,
+                  forceatual
+                )
+              }
+            />
+          </ScrollView>
+        </>
+      )}
+    </View>
+  );
+}
+
+function useForceUpdate() {
+  const [value, setValue] = useState(0);
+  return [() => setValue(value + 1), value];
+  }
+
+
+const styles = StyleSheet.create({
+  container: {
+    
+    backgroundColor: '#696969',
+    flex: 1,
+    paddingTop: Constants.statusBarHeight,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  flexRow: {
+    flexDirection: 'row',
+  },
+  input: {
+    borderColor: '#4630eb',
+    borderRadius: 4,
+    borderWidth: 1,
+    flex: 1,
+    height: 48,
+    margin: 16,
+    padding: 8,
+  },
+  listArea: {
+    backgroundColor: '#696969',
+    flex: 1,
+    paddingTop: 16,
+  },
+  sectionContainer: {
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    marginBottom: 8,
+    color:'#FFFFFF'
+  },
+});
